@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二组的回忆录</title>
+    <!-- 引入Google Fonts中的隶书字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container" id="mainContent" style="display: none;">
+        <h1>欢迎来到二组的回忆录</h1>
+        <div class="content">
+            <h2>我们的那些年</h2>
+            <p>这是一个回忆录，每一个人都可以上传当初的故事……</p>
+            
+            <h2>在那时的我们</h2>
+            <ul>
+                <li>第一栏-----lzx
+                    <div class="service-gallery" id="service1-gallery"></div>
+                </li>
+                <li>第二栏-----sqr
+                    <div class="service-gallery" id="service2-gallery"></div>
+                </li>
+                <li>第三栏-----xyq
+                    <div class="service-gallery" id="service3-gallery"></div>
+                </li>
+                <li>第四栏-----hyq
+                    <div class="service-gallery" id="service4-gallery"></div>
+                </li>
+                <li>第五栏-----hxwh
+                    <div class="service-gallery" id="service5-gallery"></div>
+                </li>
+                <li>第六栏-----hrj
+                    <div class="service-gallery" id="service6-gallery"></div>
+                </li>
+                <li>第七栏-----wyb
+                    <div class="service-gallery" id="service7-gallery"></div>
+                </li>
+                <li>第八栏-----zyk  
+                    <div class="service-gallery" id="service8-gallery"></div>
+                </li>
+            </ul>
+
+            <!-- 新增留言板 -->
+            <h2>留言板</h2>
+            <div id="messageBoard">
+                <textarea id="newMessage" placeholder="在此输入留言..."></textarea>
+                <button id="postMessage">发表留言</button>
+                <div id="messagesContainer" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;"></div>
+            </div>
+
+            <h2 class="contact-info">联系后台工作人员</h2>
+            <p class="contact-info">电话：18885808619</p>
+            <p class="contact-info">邮箱：2072645227@qq.com</p>
+        </div>
+        
+        <h2>上传图片</h2>
+        <select id="gallerySelect">
+            <option value="0">第一栏</option>
+            <option value="1">第二栏</option>
+            <option value="2">第三栏</option>
+            <option value="3">第四栏</option>
+            <option value="4">第五栏</option>
+            <option value="5">第六栏</option>
+            <option value="6">第七栏</option>
+            <option value="7">第八栏</option>
+        </select>
+        <input type="file" id="imageUpload" accept="image/*" multiple>
+
+        <div class="delete-all-container">
+            <button id="deleteSelected">删除选中照片</button>
+        </div>
+    </div>
+
+    <script>
+        function verifyPassword() {
+            const correctPassword = "222222";
+            const userPassword = prompt("请输入密码以进入页面：");
+            
+            if (userPassword === correctPassword) {
+                document.getElementById('mainContent').style.display = 'block';
+            } else {
+                alert('密码错误，请重试。');
+                verifyPassword();
+            }
+        }
+
+        window.onload = function() {
+            verifyPassword();
+            loadImages();
+            loadMessages();
+        };
+
+        let db;
+        const request = indexedDB.open("ImageGalleryDB", 1);
+
+        request.onupgradeneeded = function(event) {
+            db = event.target.result;
+            const imageStore = db.createObjectStore("images", { keyPath: "id", autoIncrement: true });
+            imageStore.createIndex("gallery", "gallery", { unique: false });
+
+            const messageStore = db.createObjectStore("messages", { keyPath: "id", autoIncrement: true });
+        };
+
+        request.onsuccess = function(event) {
+            db = event.target.result;
+            console.log("Database opened successfully");
+        };
+
+        request.onerror = function(event) {
+            console.error("Database error: " + event.target.errorCode);
+        };
+
+        function loadImages() {
+            const serviceGalleries = [
+                document.getElementById('service1-gallery'),
+                document.getElementById('service2-gallery'),
+                document.getElementById('service3-gallery'),
+                document.getElementById('service4-gallery'),
+                document.getElementById('service5-gallery'),
+                document.getElementById('service6-gallery'),
+                document.getElementById('service7-gallery'),
+                document.getElementById('service8-gallery')
+            ];
+
+            serviceGalleries.forEach(gallery => gallery.innerHTML = '');
+
+            const transaction = db.transaction(["images"], "readonly");
+            const objectStore = transaction.objectStore("images");
+
+            objectStore.openCursor().onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'img-container';
+
+                    const img = document.createElement('img');
+                    img.src = cursor.value.data;
+                    img.className = 'service-image';
+
+                    const selectCheckbox = document.createElement('input');
+                    selectCheckbox.type = 'checkbox';
+                    selectCheckbox.className = 'select-photo';
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.innerText = '删除照片';
+                    deleteButton.onclick = function() {
+                        const deleteTransaction = db.transaction(["images"], "readwrite");
+                        const deleteObjectStore = deleteTransaction.objectStore("images");
+                        deleteObjectStore.delete(cursor.value.id);
+                        loadImages();
+                    };
+
+                    imgContainer.appendChild(selectCheckbox);
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(deleteButton);
+
+                    serviceGalleries[cursor.value.gallery].appendChild(imgContainer);
+
+                    cursor.continue();
+                }
+            };
+        }
+
+        document.getElementById('imageUpload').addEventListener('change', function(event) {
+            const files = event.target.files;
+            const selectedGalleryIndex = document.getElementById('gallerySelect').value;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const transaction = db.transaction(["images"], "readwrite");
+                    const objectStore = transaction.objectStore("images");
+                    objectStore.add({ data: e.target.result, gallery: selectedGalleryIndex });
+                    loadImages();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('deleteSelected').addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('.select-photo');
+            const transaction = db.transaction(["images"], "readwrite");
+            const objectStore = transaction.objectStore("images");
+
+            checkboxes.forEach((checkbox, index) => {
+                if (checkbox.checked) {
+                    const request = objectStore.openCursor();
+                    request.onsuccess = function(event) {
+                        const cursor = event.target.result;
+                        if (cursor) {
+                            if (checkbox.parentElement.contains(cursor.value.data)) {
+                                objectStore.delete(cursor.key);
+                                checkbox.parentElement.remove();
+                            }
+                            cursor.continue();
+                        }
+                    };
+                }
+            });
+        });
+
+        // 留言板功能
+        function loadMessages() {
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.innerHTML = '';
+
+            const transaction = db.transaction(["messages"], "readonly");
+            const objectStore = transaction.objectStore("messages");
+
+            objectStore.openCursor().onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message';
+
+                    const messageText = document.createElement('p');
+                    messageText.innerText = cursor.value.text;
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.innerText = '删除评论';
+                    deleteButton.onclick = function() {
+                        const deleteTransaction = db.transaction(["messages"], "readwrite");
+                        const deleteObjectStore = deleteTransaction.objectStore("messages");
+                        deleteObjectStore.delete(cursor.value.id);
+                        loadMessages();
+                    };
+
+                    messageDiv.appendChild(messageText);
+                    messageDiv.appendChild(deleteButton);
+
+                    messagesContainer.appendChild(messageDiv);
+
+                    cursor.continue();
+                }
+            };
+        }
+
+        document.getElementById('postMessage').addEventListener('click', function() {
+            const newMessage = document.getElementById('newMessage').value;
+            if (newMessage.trim() !== '') {
+                const transaction = db.transaction(["messages"], "readwrite");
+                const objectStore = transaction.objectStore("messages");
+                const request = objectStore.add({ text: newMessage });
+
+                request.onsuccess = function() {
+                    console.log("Message added successfully");
+                    document.getElementById('newMessage').value = '';
+                    loadMessages();
+                };
+
+                request.onerror = function(event) {
+                    console.error("Error adding message: " + event.target.errorCode);
+                };
+            } else {
+                console.warn("Message is empty, not adding to database");
+            }
+        });
+    </script>
+</body>
+</html>
